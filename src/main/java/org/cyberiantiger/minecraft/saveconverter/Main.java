@@ -145,10 +145,10 @@ public class Main {
     private static void upgradePlayerFiles(File file, boolean dryRun, boolean offline) {
         File playerDir = new File(file, "players");
         if (!playerDir.isDirectory()) {
-            System.out.println("# Skipping "  + file.getPath() + " - no players dir");
+            System.out.println("Skipping "  + file.getPath() + " - no players dir");
             return;
         } else if (!playerDir.canRead()) {
-            System.out.println("# Skipping "  + file.getPath() + " - players dir cannot be read");
+            System.out.println("Skipping "  + file.getPath() + " - players dir cannot be read");
             return;
         }
         File playerdataDir = new File(file, "playerdata");
@@ -165,6 +165,9 @@ public class Main {
                 return;
             } else if (!playerdataDir.canRead()) {
                 System.out.println("Skipping "  + file.getPath() + " - playerdata cannot be read");
+                return;
+            } else if (!playerdataDir.canWrite()) {
+                System.out.println("Skipping "  + file.getPath() + " - playerdata cannot be written to");
                 return;
             }
         }
@@ -239,9 +242,8 @@ public class Main {
                 System.out.println("Skipping " + playerFile + " - target save already exists: " + targetFile);
                 continue;
             }
-            if (dryRun) {
-                System.out.println("Would move " + playerFile + " to " + targetFile);
-            } else {
+            System.out.println(playerFile.toString() + " -> " + targetFile.toString());
+            if (!dryRun) {
                 try {
                     TagOutputStream out = new TagOutputStream(new GZIPOutputStream(new FileOutputStream(targetFile)));
                     try {
@@ -249,6 +251,7 @@ public class Main {
                     } finally {
                         out.close();
                     }
+                    playerFile.delete();
                 } catch (IOException ex) {
                     System.out.println("Skipping "  + e.getKey() + " - failed to write target file");
                     targetFile.delete();
@@ -261,26 +264,29 @@ public class Main {
     private static void downgradePlayerFiles(File file, boolean dryRun, boolean offline) {
         File playerdataDir = new File(file, "playerdata");
         if (!playerdataDir.isDirectory()) {
-            System.out.println("# Skipping "  + file.getPath() + " - no players dir");
+            System.out.println("Skipping "  + file.getPath() + " - no playerdata dir");
             return;
         } else if (!playerdataDir.canRead()) {
-            System.out.println("# Skipping "  + file.getPath() + " - players dir cannot be read");
+            System.out.println("Skipping "  + file.getPath() + " - playerdata dir cannot be read");
             return;
         }
         File playerDir = new File(file, "players");
         if (!playerDir.exists()) {
             if (!dryRun) {
                 if (!playerDir.mkdir()) {
-                    System.out.println("Skipping "  + file.getPath() + " - could not create playerdata directory");
+                    System.out.println("Skipping "  + file.getPath() + " - could not create players directory");
                     return;
                 }
             }
         } else {
             if (!playerDir.isDirectory()) {
-                System.out.println("Skipping "  + file.getPath() + " - playerdata not a directory");
+                System.out.println("Skipping "  + file.getPath() + " - players not a directory");
                 return;
             } else if (!playerDir.canRead()) {
-                System.out.println("Skipping "  + file.getPath() + " - playerdata cannot be read");
+                System.out.println("Skipping "  + file.getPath() + " - players cannot be read");
+                return;
+            } else if (!playerDir.canWrite()) {
+                System.out.println("Skipping "  + file.getPath() + " - players cannot be written to");
                 return;
             }
         }
@@ -345,9 +351,8 @@ public class Main {
                 System.out.println("Skipping "  + playerFile.getPath() + " - target file exists: " + targetFile);
                 continue;
             }
-            if (dryRun) {
-                System.out.println("Would move " + playerFile + " to " + targetFile);
-            } else {
+            System.out.println(playerFile.toString() + " -> " + targetFile.toString());
+            if (!dryRun) {
                 try {
                     TagOutputStream out = new TagOutputStream(new GZIPOutputStream(new FileOutputStream(targetFile)));
                     try {
