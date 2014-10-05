@@ -45,17 +45,29 @@ public class Main {
             throw new IllegalStateException();
         }
     }
+    // Maximum queries per 10 minutes.
+    private static final int DEFAULT_RATE = 600;
     private static final Pattern VALID_USERNAME = Pattern.compile("[a-zA-Z0-9_]{2,16}");
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final int BATCH_SIZE = 100; // Mojang's code says don't do over 100 at once.
     private static final Gson gson = new Gson();
 
+    private static long lastQuery = 0L;
+    private static long queryDelay = queryDelay(DEFAULT_RATE);
+
+    private static long queryDelay(int rate) {
+        if (rate <= 0)
+            return 0L;
+        // Round up, not down.
+        return 1L + (10L * 60L * 1000L) / rate;
+    }
 
     private static void usage() {
-        System.err.println("Usage: java -jar save-converter.jar [-n] [-r] [-o] <worldsave> <worldsave>....");
-        System.err.println("     -n - dry run, don't do anything.");
-        System.err.println("     -r - downgrade save files.");
-        System.err.println("     -o - offline mode");
+        System.err.println("Usage: java -jar save-converter.jar [-R <rate>] [-n] [-r] [-o] <worldsave> <worldsave>....");
+        System.err.println("     -R <rate> - Maximum number of queries per 10 minutes, default 600"); 
+        System.err.println("     -n        - dry run, don't do anything.");
+        System.err.println("     -r        - downgrade save files.");
+        System.err.println("     -o        - offline mode");
     }
 
     public static void main(String[] args) throws Exception {
@@ -75,6 +87,20 @@ public class Main {
                     reverse = true;
                 } else if ("-o".equals(arg)) {
                     offline = true;
+                } else if ("-R".equals(arg)) {
+                    i++;
+                    if (args.length == i)  {
+                        System.err.println("missing argument for -R");
+                        usage();
+                        System.exit(1);
+                    }
+                    try {
+                        queryDelay = queryDelay(Integer.parseInt(args[i]));
+                    } catch (NumberFormatException e) {
+                        System.err.println("rate must be an integer: " + args[i]);
+                        usage();
+                        System.exit(1);
+                    }
                 } else {
                     System.err.println("Unexpected flag: " + arg);
                     usage();
@@ -116,11 +142,21 @@ public class Main {
     }
 
     private static Map<String,UUID> getOnlineUUIDs(Collection<String> tmp) throws IOException {
+        long now = System.currentTimeMillis();
+        if (lastQuery + queryDelay > now) {
+            try {
+                Thread.sleep(lastQuery + queryDelay - now);
+            } catch (InterruptedException ex) {
+            }
+            lastQuery += queryDelay;
+        } else {
+            lastQuery = now;
+        }
         List<String> players = new ArrayList<String>(tmp);
         List<String> batch = new ArrayList<String>();
         Map<String,UUID> result = new HashMap<String,UUID>();
         while (!players.isEmpty()) {
-            for (int i = 0; !players.isEmpty() && i < 100; i++) {
+            for (int i = 0; !players.isEmpty() && i < BATCH_SIZE; i++) {
                 batch.add(players.remove(players.size()-1));
             }
             HttpURLConnection connection = (HttpURLConnection) PROFILE_URL.openConnection();
